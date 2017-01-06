@@ -1,0 +1,259 @@
+//Match special selectors e.g psudo,filter
+					if(strpos($params,':') !==false){
+						$filters = array('first','last','input','even','not','odd',
+							'first-child','last-child','visible','hidden','parent','empty','button','checked','file','text','disabled','submit','checkbox','selected','radio','has','contains','eq','gt','lt','nth-child','first-of-type','last-of-type','nth-last-child','nth-of-type','nth-last-of-type','only-child','only-of-type','header'
+						);
+						$regexp = '/\:+([A-Z0-9\-]+)*([\(](.*?)[\)])?/ix';
+						$pseudo = preg_match_all($regexp,$params,$query);
+						
+						if($pseudo){
+						
+						$selected_filters = array_intersect($query[1],$filters);
+						$selected_filters = array_fill_keys($selected_filters,NULL);
+						
+						
+						if(strpos(implode(' ',str_replace(array('has','contains','eq','gt','lt','parent','nth-child','nth-last-child','nth-of-type','nth-last-of-type'),'*',array_keys($selected_filters))),'*')!==false){
+							
+							/* $funcs = array_intersect_key($selected_filters,array('has'=>NULL,'contains'=>NULL,'eq'=>NULL,'gt'=>NULL,'lt'=>NULL,'parent'=>NULL)); */
+							
+							$selected_filters = array_intersect_key(array_combine($query[1],$query[3]),$selected_filters);
+							
+							
+						}
+						
+						if(array_key_exists('last-of-type',$selected_filters) || array_key_exists('first-of-type',$selected_filters) || array_key_exists('nth-of-type',$selected_filters) || array_key_exists('nth-last-of-type',$selected_filters)){
+							
+								if(empty($tag) || $tag ==='*'){
+									throw new Exception('Selector requires ElementType. But not found.');
+								}
+							$params=  str_replace(array(':last-of-type',':first-of-type','nth-of-type','nth-last-of-type'),array('last-child','first-child','nth-child','nth-last-child'),$params);
+							if(isset($selected_filters['nth-of-type'])){
+								$selected_filters['nth-child'] = $selected_filters['nth-of-type'];
+								unset($selected_filters['nth-of-type']);
+							}
+							if(isset($selected_filters['last-of-type'])){
+								$selected_filters['last-child'] = $selected_filters['last-of-type'];
+								unset($selected_filters['last-of-type']);
+							}
+							if(isset($selected_filters['first-of-type'])){
+								$selected_filters['first-child'] = $selected_filters['first-of-type'];
+								unset($selected_filters['first-of-type']);
+							}
+							if(isset($selected_filters['nth-last-of-type'])){
+								$selected_filters['nth-last-child'] = $selected_filters['nth-last-of-type'];
+								unset($selected_filters['nth-last-of-type']);
+							}
+							
+							
+						}
+						if(array_key_exists('input',$selected_filters)){
+							$tag = 'input|select|textarea|button';
+							$regex = '/<('.$tag.'*)\b([^>]*)>(?:(.*?)(<\/\1>))?/xsi';
+							$t = 'input%s,select%s,textarea%s,button%s';
+							$tt = $params;
+							$start = strrpos($params,':input');
+								if($start !==false AND $start > 0){
+									$start = substr($params,0,$start);
+									$t = $start.'input%s,'.$start.'select%s,'.$start.'textarea%s,'.$start.'button%s';
+									$tt = substr($params,strlen($start));
+									
+								}
+								$others = str_replace(':input','',$tt);
+								if(empty($others)){
+									$others = '';
+								}
+								
+								$t = str_replace('%s',$others,$t);
+								
+							$params=  $t;
+							
+						}
+							if(array_key_exists('header',$selected_filters)){
+							$tag = 'h1|h2|h3|h4|h5|h6';
+							$regex = '/<('.$tag.'*)\b([^>]*)>(?:(.*?)(<\/\1>))?/xsi';
+							
+							$t = 'h1%s,h2%s,h3%s,h4%s,h5%s,h6%s';
+							$tt = $params;
+							$start = strrpos($params,':header');
+								if($start !==false AND $start > 0){
+									$start = substr($params,0,$start);
+									$t = $start.'h1%s,'.$start.'h2%s,'.$start.'h3%s,'.$start.'h4%s,'.$start.'h5%s,'.$start.'h6%s';
+									$tt = substr($params,strlen($start));
+								}
+								$others = str_replace(':header','',$tt);
+								if(empty($others)){
+									$others = '';
+								}
+								
+								$t = str_replace('%s',$others,$t);
+								
+							$params=  $t;
+							}
+							
+						if(array_key_exists('checked',$selected_filters)){
+							$tag = 'input';
+							$regex = '/<('.$tag.'*)\b([^>]*)>(?:(.*?)(<\/\1>))?/xsi';
+							$attri['colExists'][] = 'type';
+							$attri['Like']['type'] = 'radio checkbox';
+							$attri['K_Not']['type'] = array('radio checkbox');
+							$attri['colExists'][] = 'checked';
+						}
+						
+						if(array_key_exists('selected',$selected_filters)){
+							$tag = 'option';
+							$regex = '/<('.$tag.'*)\b([^>]*)>(?:(.*?)(<\/\1>))?/xsi';
+							$selected_filters['parent'] = 'select';
+							$attri['colExists'][] = 'selected';
+							
+						}
+						
+						
+						if(array_key_exists('file',$selected_filters) || array_key_exists('text',$selected_filters)){
+							$tag = 'input';
+							if(array_key_exists('file',$selected_filters)){
+							$params = str_replace(':file','[type=file]',$params);
+							}else{
+								$params = str_replace(':text','[type=text]',$params);
+							}
+						}
+						if(array_key_exists('submit',$selected_filters)){
+							
+							$regex = '/<(input|button*)\b([^>]*)>(?:(.*?)(<\/\1>))?/xsi';
+							$t = 'button[type=submit]%s,input[type=submit]%s';	
+							$tag = 'input|button';
+							$tt = $params;
+							$start = strrpos($params,':submit');
+								if($start !==false AND $start > 0){
+									$start = substr($params,0,$start);
+									$t = $start.'button[type=submit]%s,'.$start.'input[type=submit]%s';
+									$tt = substr($params,strlen($start));
+								}
+								$others = str_replace(':submit','',$tt);
+								if(empty($others)){
+									$others = '';
+								}
+								$t = str_replace('%s',$others,$t);
+							$params=  $t;
+						}
+						
+						
+						
+						if(array_key_exists('button',$selected_filters)){
+							$tag = 'input|button';
+							
+								
+							$regex = '/<('.$tag.'*)\b([^>]*)>(?:(.*?)(<\/\1>))?/xsi';
+							$t = 'button%s,input[type=button]%s';	
+							$tt = $params;
+							$start = strrpos($params,':button');
+							
+								if($start !==false AND $start > 0){
+									$start = substr($params,0,$start);
+									
+									$t = $start.'button%s,'.$start.'input[type=button]%s';
+									$tt = substr($params,strlen($start));
+									
+								}
+								$others = str_replace(':button','',$tt);
+								if(empty($others)){
+									$others = '';
+								}
+								
+								$t = str_replace('%s',$others,$t);
+							$params=  $t;
+							
+							
+						}
+						
+				}
+					}
+					
+					if(strpos($params,'#') !==false){
+				//Has id
+				
+				if(preg_match('/(\#+[A-Z0-9_-]+)/i',$params,$query)){
+					//Has another declaration
+					$selectors['id'] = trim($query[1],'#');
+				}
+				
+			}
+			//Match tag class
+			$r = '#\.+([A-Z0-9_-]+)(?![^\[]*\])#i';
+			if(preg_match_all($r,$params,$query)){
+				//Has class
+				
+					$selectors['class'] = str_replace('.','',implode('|',$query[1]));
+					
+			}
+			
+			//Match tag attributes
+				
+				
+			if(preg_match_all('/\[(.*?)\]/',$params,$query)){
+				
+			
+				if(preg_match_all('#\[([\w\-]{1,})\=(.*?)\]#',$params,$ts)){
+				$attr = array_combine($ts[1],$ts[2]);
+				$selectors = array_merge($selectors,$attr);
+				
+				}
+				$ts = NULL;
+				//Get Prefix tag attributes |=
+				if(preg_match_all('#\[([\w\-]{1,})(\*=|\|=|\!=|\~=|\$=|\^=)+(.*?)\]#x',$params,$ts)){
+				//Get contains substring tag attributes  *=
+				//Get contains word tag attributes ~=
+				//Get ends with substring tag attributes $=
+				////Get dont have substring tag attributes !=
+				//Get starts with substring tag attributes ^=
+				//Get Has attribute [attr]
+			
+					$f = count($ts[2]);
+					for($i=0;$f > $i;$i++){
+						switch($ts[2][$i]){
+							case '*=':
+							if(isset($attri['IN'][$ts[1][$i]])){
+								
+							$attri['IN'][$ts[1][$i]][]= $ts[3][$i];
+								}else{
+								$attri['IN'][$ts[1][$i]]= array($ts[3][$i]);	
+								}
+							break;
+							case '!=':
+								if(isset($attri['K_Not'][$ts[1][$i]])){
+							$attri['K_Not'][$ts[1][$i]][]= $ts[3][$i];
+								}else{
+								$attri['K_Not'][$ts[1][$i]]= array($ts[3][$i]);	
+								}
+							break;
+							case '~=':
+							$attri['Like'][$ts[1][$i]]= $ts[3][$i];
+							break;
+							case '|=':
+							$attri['Inrange'][$ts[1][$i]]= array_filter(explode(' ',$ts[3][$i]));
+							break;
+							case '$=':
+							$attri['EndsWith'][$ts[1][$i]]= $ts[3][$i];
+							break;
+							case '^=':
+							
+							$attri['BeginsWith'][$ts[1][$i]]= $ts[3][$i];
+							break;
+							default:
+							continue;
+						}
+					}
+				}
+				$ts = NULL;
+				if(preg_match_all('#\[([\w\-]{1,})\]#x',$params,$ts)){
+					$attri['colExists'] = $ts[1];
+				}
+				$ts = NULL;
+				if(preg_match_all('#\[\!+([\w\-]{1,})\]#x',$params,$ts)){
+					$attri['colNotExists'] = $ts[1];
+				}
+				$ts = NULL;
+				
+				
+				
+				
+			}
